@@ -1,0 +1,148 @@
+---
+title: "Recommender System"
+author: "Jose Fuentes"
+date: "2024-12-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+In today's world of digital media, recommendation systems play a crucial role in enhancing user experience by suggesting relevant content. Among various techniques, the Global Baseline Estimate (GBE) approach offers a non-personalized yet effective method for predicting user preferences. This project aims to implement a GBE recommendation system using a dataset of movie ratings. The GBE approach leverages the overall average rating, user biases, and movie biases to fill in missing ratings, ensuring a complete and usable dataset for further recommendation tasks. By understanding and applying these concepts, we can provide reliable recommendations even in the absence of extensive user-specific data.
+
+#Steps for the recommender system:
+
+The provided R code effectively downloads and processes the movie ratings dataset, calculating the necessary global average, user biases, and movie biases. The readxl and httr libraries are used to read the data, while dplyr assists in data manipulation. The code calculates the global average rating from the dataset, followed by computing the user and movie biases based on deviations from this global average. 
+
+A function, GBE, is defined to apply these biases and the global average to predict and fill in missing ratings (NAs). The nested loops iterate through the dataset, applying the GBE function to replace NAs with estimated values, ensuring a complete dataset that can be saved for further analysis.
+
+```{r rsystem}
+# Load necessary libraries
+library(readxl)
+library(httr)
+library(dplyr)
+
+# Download the dataset
+url <- "https://github.com/Jomifum/AssignmentWeek11/blob/main/MovieRatings.xlsx?raw=true"
+temp_file <- tempfile(fileext = ".xlsx")
+GET(url, write_disk(temp_file, overwrite = TRUE))
+data <- read_excel(temp_file)
+
+# Extract ratings data and convert to a data frame
+ratings <- as.data.frame(data[, 2:7])  # Movie ratings columns
+user_avg <- as.numeric(data[["user avg"]])  # User average ratings
+global_avg <- mean(as.numeric(unlist(ratings)), na.rm = TRUE)  # Global average rating
+
+# Calculate movie biases
+movie_avg <- colMeans(ratings, na.rm = TRUE)
+movie_bias <- movie_avg - global_avg
+
+# Calculate user biases
+user_bias <- user_avg - global_avg
+
+# Print the biases for debugging purposes
+print("User Biases:")
+print(user_bias)
+print("Movie Biases:")
+print(movie_bias)
+
+# Define GBE calculation
+GBE <- function(user_bias, movie_bias, global_avg) {
+  global_avg + user_bias + movie_bias
+}
+
+# Fill missing values with GBE
+for (i in 1:nrow(ratings)) {
+  for (j in 1:ncol(ratings)) {
+    if (is.na(ratings[i, j])) {
+      current_user_bias <- user_bias[i]
+      current_movie_bias <- movie_bias[j]
+      ratings[i, j] <- GBE(current_user_bias, current_movie_bias, global_avg)
+    }
+  }
+}
+
+# Output the corrected ratings
+print("Updated Ratings with GBE:")
+print(ratings)
+
+# Save the updated dataset to a CSV file
+write.csv(ratings, "GBE_Recommendations_Corrected.csv", row.names = FALSE)
+
+```
+
+In this chunk another way was used without using for loop, this is the Vectorized Approach:
+
+```{r rsystem other}
+# Load necessary libraries
+library(readxl)
+library(httr)
+library(dplyr)
+
+# Download the dataset
+url <- "https://github.com/Jomifum/AssignmentWeek11/blob/main/MovieRatings.xlsx?raw=true"
+temp_file <- tempfile(fileext = ".xlsx")
+GET(url, write_disk(temp_file, overwrite = TRUE))
+data <- read_excel(temp_file)
+
+# Extract ratings data and convert to a data frame
+ratings <- as.data.frame(data[, 2:7])  # Movie ratings columns
+
+# Check structure to ensure data is read correctly
+print("Ratings Data:")
+print(head(ratings))
+
+# Calculate averages and biases
+user_avg <- as.numeric(data[["user avg"]])  # User average ratings
+global_avg <- mean(as.numeric(unlist(ratings)), na.rm = TRUE)  # Global average rating
+
+# Calculate movie biases
+movie_avg <- colMeans(ratings, na.rm = TRUE)
+movie_bias <- movie_avg - global_avg
+
+# Calculate user biases
+user_bias <- user_avg - global_avg
+
+# Print biases for debugging
+print("User Biases:")
+print(user_bias)
+print("Movie Biases:")
+print(movie_bias)
+
+# Define GBE calculation function
+GBE <- function(user_bias, movie_bias, global_avg) {
+  global_avg + user_bias + movie_bias
+}
+
+# Create matrix with GBE values for all user-movie pairs
+gbe_matrix <- outer(user_bias, movie_bias, FUN = GBE, global_avg = global_avg)
+
+# Replace NA values in the ratings matrix with corresponding GBE values
+ratings[is.na(ratings)] <- gbe_matrix[is.na(ratings)]
+
+# Output the corrected ratings
+print("Updated Ratings with GBE:")
+print(ratings)
+
+# Save the updated dataset to a CSV file
+write.csv(ratings, "GBE_Recommendations_Corrected2.csv", row.names = FALSE)
+
+```
+
+Both methods for the recommender system one using for loop and the one using vectorized operations give the same output and used the GBE approach. 
+
+##Summary of Interpretation
+
+The Global Baseline Estimate (GBE) approach is a robust non-personalized recommendation system that fills in missing ratings using the formula 
+𝑟^𝑢=𝜇+𝑏𝑢+𝑏𝑖, where 𝜇 is the global average rating, 𝑏𝑢is the user bias, and 𝑏𝑖is the movie bias. 
+
+By applying this method, all NA values in the dataset are replaced with calculated estimates, making the dataset complete and usable for subsequent recommendation tasks. This approach balances overall trends and individual biases, ensuring that the recommendations reflect both user tendencies and movie popularity. While GBE is not personalized and may not adapt to dynamic changes, it provides a solid foundation for recommendation systems, especially in scenarios with limited user-specific data. For example, Param's rating for "Pitch Perfect 2" was correctly estimated using the GBE formula, demonstrating the practical application of this method.
+
+## Conclusion
+
+The Global Baseline Estimate recommender system provides a foundational approach to handling incomplete data and making reasonable predictions. By filling in the missing values with estimates based on global trends and biases, it ensures a complete dataset for further analysis and recommendation tasks. While it has its limitations, it's a valuable tool in scenarios where detailed user data is not available, and it can serve as a robust baseline in hybrid recommendation systems.
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
